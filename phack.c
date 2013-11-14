@@ -239,7 +239,8 @@ int dump_pages(int f, int o, int start_page, int n) {
     for (i = start_page; i < start_page+n; i++) {
         bytes = read_page(f, i);
         if (bytes != DRR_PAGE_SIZE) {
-            printf("ERROR: got only 0x0%4x bytes for page 0x%04x!\n", bytes, i);
+            printf("ERROR: got only 0x0%4x bytes for page 0x%04x!\n",
+                   (int)bytes, i);
         }
         bytes = write(o,buff,DRR_PAGE_SIZE);
         if (bytes != DRR_PAGE_SIZE) {
@@ -279,7 +280,8 @@ int write_page(int f, unsigned char *data, int p) {
     wrote_bytes = write_data(f, data, DRR_PAGE_SIZE);
 
     if (wrote_bytes != DRR_PAGE_SIZE) {
-        printf("ERROR: Write for page %02x returned %i.\n", p, wrote_bytes);
+        printf("ERROR: Write for page %02x returned %i.\n",
+               p, (int)wrote_bytes);
         return 0;
     }
     return 1;
@@ -350,7 +352,8 @@ int upload_file(int f, int p, int o) {
         ssize_t gotbytes;
         gotbytes = read(o, buff, DRR_PAGE_SIZE);
         if (gotbytes != DRR_PAGE_SIZE) {
-            printf("ERROR: Read for page %02x returned %i.\n", curpage, gotbytes);
+            printf("ERROR: Read for page %02x returned %i.\n",
+                   curpage, (int)gotbytes);
             return 0;
         }
         if (write_page_with_verify(f,buff,curpage) != 1) {
@@ -557,7 +560,7 @@ int hack_code(int f, int o)
 
     gotbytes = read(o, buf, filesize);
     if (gotbytes != filesize) {
-        printf("ERROR: File read returned %i.\n", gotbytes);
+        printf("ERROR: File read returned %i.\n", (int)gotbytes);
         return 0;
     }
 
@@ -608,7 +611,7 @@ int hack_code_long(int f, int o) {
 
     gotbytes = read(o, codebuf, bytesremain);
     if (gotbytes != bytesremain) {
-        printf("ERROR: File read returned %i.\n", gotbytes);
+        printf("ERROR: File read returned %i.\n", (int)gotbytes);
         return 0;
     }
 
@@ -701,7 +704,7 @@ int hack_image(int f, int o)
 
         bytes = read(o, &buff[bufidx+1], chunksize);
         if (bytes != chunksize) {
-            printf("ERROR: File read returned %i.\n", bytes);
+            printf("ERROR: File read returned %i.\n", (int)bytes);
             return 0;
         }
 
@@ -712,7 +715,7 @@ int hack_image(int f, int o)
             bytes = write_data(f, buff, bufidx);
 
             if (bytes != bufidx) {
-                printf("ERROR: Write returned %i.\n", bytes);
+                printf("ERROR: Write returned %i.\n", (int)bytes);
                 return 0;
             }
 
@@ -728,7 +731,7 @@ int hack_image(int f, int o)
     bytes = write_data(f, buff, bufidx);
 
     if (bytes != bufidx) {
-        printf("ERROR: Write returned %i.\n", bytes);
+        printf("ERROR: Write returned %i.\n", (int)bytes);
         return 0;
     }
 
