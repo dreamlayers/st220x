@@ -1,3 +1,4 @@
+CC	=	gcc
 SRC	=	st2205.c
 OBJ	=	st2205.o
 HEADERS	=	st2205.h
@@ -8,7 +9,7 @@ all:	libst2205.so
 
 libst2205.so:	$(OBJ) $(SRC) $(HEADERS) 
 	ar -rv libst2205.a $(OBJ) 
-	gcc -shared -Wl,-soname,libst2205.so.1 -o libst2205.so $(OBJ) $(LIBS)
+	$(CC) $(LDFLAGS) -shared -Wl,-soname,libst2205.so.1 -o libst2205.so $(OBJ) $(LIBS)
 
 clean:	
 	rm -f $(OBJ) test *.a *.so

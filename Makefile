@@ -1,6 +1,7 @@
 SRC	=	phack.c
 OBJ	=	phack.o
-FLAGS	=	-g -Wall
+CC	=       gcc
+CFLAGS	=	-g -Wall
 LIBS	=	
 
 all:	libst2205/libst2205.so setpic/setpic phack splice bgrep
@@ -15,7 +16,7 @@ setpic/setpic:
 	make -C setpic
 
 phack:	$(OBJ) $(SRC)
-	gcc -o $(@) $(OBJ) $(LIBS) $(FLAGS)
+	$(CC) $(LDFLAGS) -o $(@) $(OBJ) $(LIBS)
 
 splice:	splice.o splice.c
 	gcc -o splice splice.o
