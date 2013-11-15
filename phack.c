@@ -16,6 +16,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* This is required for O_DIRECT */
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -23,11 +26,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef __linux
-#include <asm/fcntl.h>
-#else
 #include <fcntl.h>
-#endif
 #include <dirent.h>
 #include <sys/mman.h>
 
@@ -83,6 +82,7 @@ int is_photoframe(int f) {
     buff=malloc_aligned(0x200);
     lseek(f,0x0,SEEK_SET);
     y=read(f,buff,0x200);
+    if (y != 0x200) return 0;
     buff[15]=0;
 //    fprintf(stderr,"ID=%s\n",buff);
     res=strcmp(buff,id)==0?1:0;
@@ -829,11 +829,9 @@ void print_usage(char *s)
 }
 
 int main(int argc, char** argv) {
-    int f,o;
+    int f,o=-1;
     unsigned int i;
     const struct command_s *command=NULL;
-
-    int mem;
 
     if (argc<3) {
         print_usage(argv[0]);
@@ -884,7 +882,7 @@ int main(int argc, char** argv) {
         break;
     };
 
-    if (command->parameter >= P_INFILE && f < 0) {
+    if (command->parameter >= P_INFILE && o < 0) {
         fprintf(stderr,"Error opening %s.\n",argv[3]);
         exit(1);
     }
@@ -894,9 +892,9 @@ int main(int argc, char** argv) {
     buff=malloc_aligned(FIRMWARE_SIZE);
     cmdbuf=malloc_aligned(SCSI_SECTOR_SIZE);
 
+#if 0
     //mem=calculate_flash_size(f);
     mem = 4 * 1024;
-#if 0
     //print_image_size(f);
 
     //print_firmware_version(f);
