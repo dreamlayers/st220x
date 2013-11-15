@@ -1,7 +1,7 @@
 SRC	=	phack.c
 OBJ	=	phack.o
 CC	=       gcc
-CFLAGS	=	-g -Wall
+CFLAGS	=	-O -g -Wall
 LIBS	=	
 
 all:	libst2205/libst2205.so setpic/setpic phack splice bgrep
