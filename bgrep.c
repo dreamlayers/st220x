@@ -24,12 +24,12 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-void pfatal(const char *msg) {
+static void pfatal(const char *msg) {
     perror(msg);
     exit(1);
 }
 
-void fatal(const char *msg) {
+static void fatal(const char *msg) {
     fputs(msg, stderr);
     exit(1);
 }

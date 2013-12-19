@@ -53,7 +53,7 @@ Two routines to allocate/deallocate page-aligned memory, for use with the
 O_DIRECT-opened files.
 */
 
-void *malloc_aligned(long size) {
+static void *malloc_aligned(long size) {
     int f;
     char *buff;
     f=open("/dev/zero",O_RDONLY);
@@ -66,7 +66,7 @@ void *malloc_aligned(long size) {
     return buff;
 }
 
-void free_aligned(void *addr, long size) {
+static void free_aligned(void *addr, long size) {
     munmap(addr,size);
 }
 
@@ -75,7 +75,7 @@ void free_aligned(void *addr, long size) {
 Checks if the device is a photo frame by reading the first 512 bytes and
 comparing against the known string that's there
 */
-int is_photoframe(int f) {
+static int is_photoframe(int f) {
     int y,res;
     char id[]="SITRONIX CORP.";
     char *buff;
@@ -117,7 +117,8 @@ Functions accessible via the original interface at POS_CMD
 
 #define MESSAGE_LEN 9
 
-int sendcmd(int f,int cmd, unsigned int arg1, unsigned int arg2, unsigned char arg3) {
+static int sendcmd(int f,int cmd,
+                   unsigned int arg1, unsigned int arg2, unsigned char arg3) {
     ssize_t wrote_bytes;
 
     if (lseek(f,POS_CMD,SEEK_SET) != POS_CMD) {
@@ -147,7 +148,7 @@ int sendcmd(int f,int cmd, unsigned int arg1, unsigned int arg2, unsigned char a
 }
 
 #ifdef DEBUG
-int tst(int f) {
+static int tst(int f) {
     unsigned char *buff;
     buff=malloc_aligned(0x200);
     buff[0]=3;
@@ -163,17 +164,17 @@ int tst(int f) {
 }
 #endif
 
-int read_data(int f, unsigned char *buff, int len) {
+static int read_data(int f, unsigned char *buff, int len) {
     lseek(f,POS_RDAT,SEEK_SET);
     return read(f,buff,len);
 }
 
-int write_data(int f, unsigned char *buff, int len) {
+static int write_data(int f, unsigned char *buff, int len) {
     lseek(f,POS_WDAT,SEEK_SET);
     return write(f,buff,len);
 }
 
-int get_mem_size(int f) {
+static int get_mem_size(int f) {
     sendcmd(f,CMD_GET_MEM_SIZE,0,0,0);
     if (read_data(f,buff,SCSI_SECTOR_SIZE) == SCSI_SECTOR_SIZE) {
         return (buff[0]*128*1024)/512;
@@ -182,7 +183,7 @@ int get_mem_size(int f) {
     }
 }
 
-int calculate_flash_size(int f) {
+static int calculate_flash_size(int f) {
     int mem, x;
 
     mem = get_mem_size(f);
@@ -199,7 +200,7 @@ int calculate_flash_size(int f) {
 }
 
 
-void print_image_size(int f) {
+static void print_image_size(int f) {
     sendcmd(f,CMD_GET_PIC_INFO,0,0,0);
     read_data(f,buff,SCSI_SECTOR_SIZE);
     int xsize = (buff[0]<<8)+buff[1];
@@ -208,19 +209,19 @@ void print_image_size(int f) {
     printf("Xres: %i, Yres: %i, bpp: %i\n",xsize,ysize,bpp);
 }
 
-void print_firmware_version(int f) {
+static void print_firmware_version(int f) {
     sendcmd(f,CMD_GET_VERSION,0,0,0);
     read_data(f,buff,SCSI_SECTOR_SIZE);
     printf("ver: %02x %02x %02x\n", buff[0], buff[1], buff[2]);
 }
 
-void print_picture_format(int f) {
+static void print_picture_format(int f) {
     sendcmd(f,CMD_GET_PIC_FMT,0,0,0);
     read_data(f,buff,SCSI_SECTOR_SIZE);
     printf("picture format: %02x %02x\n", buff[0], buff[1]);
 }
 
-int checksum_page(int f, int p, unsigned int *c) {
+static int checksum_page(int f, int p, unsigned int *c) {
     /* Firmware subtracts two from the whole 16 bit value */
     if (sendcmd(f,CMD_FLASH_CHECKSUM,(p-2)&0xFFFF,0,0) != 1) return 0;
     if (read_data(f,buff,SCSI_SECTOR_SIZE) != SCSI_SECTOR_SIZE) return 0;
@@ -228,13 +229,13 @@ int checksum_page(int f, int p, unsigned int *c) {
     return 1;
 }
 
-int read_page(int f, int p) {
+static int read_page(int f, int p) {
     /* Firmware subtracts two from the low byte only */
     sendcmd(f,CMD_FLASH_READ,(p&0xFF00)|(((p&0xFF)-2)&0xFF),0,0);
     return read_data(f,buff,DRR_PAGE_SIZE);
 }
 
-int dump_pages(int f, int o, int start_page, int n) {
+static int dump_pages(int f, int o, int start_page, int n) {
     int i, bytes;
     for (i = start_page; i < start_page+n; i++) {
         bytes = read_page(f, i);
@@ -252,13 +253,14 @@ int dump_pages(int f, int o, int start_page, int n) {
     return 1;
 }
 
-int set_clock(int f, int y, unsigned char month, unsigned char d, unsigned char h, unsigned char min) {
+static int set_clock(int f, int y, unsigned char month, unsigned char d,
+                     unsigned char h, unsigned char min) {
     return sendcmd(f,CMD_SET_CLOCK,
                    ((y&0xFFFF)<<16)|(month<<8)|d,
                    (h<<24)|(min<<16), 0);
 }
 
-unsigned int checksum32(unsigned char *data, unsigned int len) {
+static unsigned int checksum32(unsigned char *data, unsigned int len) {
     unsigned int i, checksum = 0;
 
     for (i = 0; i < len; i++) {
@@ -268,7 +270,7 @@ unsigned int checksum32(unsigned char *data, unsigned int len) {
     return checksum;
 }
 
-int write_page(int f, unsigned char *data, int p) {
+static int write_page(int f, unsigned char *data, int p) {
     ssize_t wrote_bytes;
 
     /* Firmware subtracts two from the low byte only */
@@ -287,7 +289,7 @@ int write_page(int f, unsigned char *data, int p) {
     return 1;
 }
 
-int write_page_with_verify(int f, unsigned char *data, int page) {
+static int write_page_with_verify(int f, unsigned char *data, int page) {
     unsigned int csumhere, csumthere;
 
     csumhere = checksum32(data, DRR_PAGE_SIZE);
@@ -307,7 +309,7 @@ int write_page_with_verify(int f, unsigned char *data, int page) {
     return 1;
 }
 
-off_t get_file_size(int o) {
+static off_t get_file_size(int o) {
     off_t offset;
     int ret = 1;
 
@@ -328,7 +330,7 @@ off_t get_file_size(int o) {
     return ret ? offset : 0;
 }
 
-int upload_file(int f, int p, int o) {
+static int upload_file(int f, int p, int o) {
     int curpage, endpage;
     off_t offset;
 
@@ -365,7 +367,7 @@ int upload_file(int f, int p, int o) {
 }
 
 #if 0
-int upload_firmware(int f, int o) {
+static int upload_firmware(int f, int o) {
     off_t offset;
     ssize_t gotbytes, wrote_bytes;
 
@@ -406,7 +408,7 @@ int upload_firmware(int f, int o) {
     return 1;
 }
 #else
-int upload_firmware(int f, int o) {
+static int upload_firmware(int f, int o) {
     unsigned int cksumhere, cksumthere;
     int    x, y;
     unsigned char *cksumbuf;
@@ -448,7 +450,7 @@ int upload_firmware(int f, int o) {
 }
 #endif
 
-unsigned char *get_ram(int f) {
+static unsigned char *get_ram(int f) {
     int bytes;
 
     bytes = read_page(f, 0);
@@ -467,7 +469,7 @@ unsigned char *get_ram(int f) {
     }
 }
 
-int dump_ram(int f, int o) {
+static int dump_ram(int f, int o) {
     int bytes;
     unsigned char *ram;
 
@@ -483,7 +485,7 @@ int dump_ram(int f, int o) {
     }
 }
 
-int send_message(int f, char *s)
+static int send_message(int f, char *s)
 {
     if (sendcmd(f,CMD_MESSAGE,0,0,0) != 1) {
         printf("ERROR: Failed to send message command");
@@ -500,7 +502,7 @@ int send_message(int f, char *s)
     }
 }
 
-int hack_frame(int f, char *tag, unsigned char *b)
+static int hack_frame(int f, char *tag, unsigned char *b)
 {
     ssize_t wrote_bytes;
 
@@ -527,7 +529,7 @@ int hack_frame(int f, char *tag, unsigned char *b)
     }
 }
 
-int hack_text(int f, char *msg)
+static int hack_text(int f, char *msg)
 {
     int len;
 
@@ -544,7 +546,7 @@ int hack_text(int f, char *msg)
     }
 }
 
-int hack_code(int f, int o)
+static int hack_code(int f, int o)
 {
     off_t filesize;
     ssize_t gotbytes;
@@ -570,7 +572,7 @@ int hack_code(int f, int o)
 /* This is to for uploading to BKO buffer appended with data for
  * copying to another bigger free area in memory
  */
-const unsigned char uploader[] = {
+static const unsigned char uploader[] = {
     /* 0200 */ 0x78,       /* sei */
     /* 0201 */ 0xA9, 0x1F, /* lda #cpdata&$FF */
     /* 0203 */ 0x85, 0x58, /* sta DMSL */
@@ -593,7 +595,7 @@ const unsigned char uploader[] = {
     /* 021F */
 };
 
-int hack_code_long(int f, int o) {
+static int hack_code_long(int f, int o) {
     unsigned char buf[USB_PACKET_SIZE];
     unsigned char codebuf[FREE_RAM_SIZE];
     int bytesremain;
@@ -667,7 +669,7 @@ int hack_code_long(int f, int o) {
     return 1;
 }
 
-int hack_image(int f, int o)
+static int hack_image(int f, int o)
 {
     int bytesremain;
     unsigned int bufidx = 64;
@@ -738,11 +740,11 @@ int hack_image(int f, int o)
     return 1;
 }
 
-//#ifdef DEBUG
+#ifdef DEBUG
 /*
 Debugging routine to dump a buffer in a hexdump-like fashion.
 */
-void dumpmem(unsigned char* mem, int len) {
+static void dumpmem(unsigned char* mem, int len) {
     int x,y;
     for (x=0; x<len; x+=16) {
     printf("%04x: ",x);
@@ -766,7 +768,7 @@ void dumpmem(unsigned char* mem, int len) {
     printf("\n");
     }
 }
-//#endif
+#endif /* DEBUG */
 
 enum mode_e {
     M_NONE = 0,
@@ -798,7 +800,7 @@ struct command_s {
     enum paramtype_e parameter;
 };
 
-const struct command_s commands[] = {
+static const struct command_s commands[] = {
     { "-dp", "dump picture memory", M_DMP, P_OUTFILE },
     { "-up", "upload picture memory", M_UP, P_INFILE },
     { "-df", "dump firmware", M_FDMP, P_OUTFILE },
@@ -812,7 +814,7 @@ const struct command_s commands[] = {
     { "--upload-image", "upload image", M_H_IMAGE, P_INFILE },
 };
 
-void print_usage(char *s)
+static void print_usage(char *s)
 {
     int i;
 
