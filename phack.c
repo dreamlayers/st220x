@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/mman.h>
+#include <time.h>
 
 #define USB_PACKET_SIZE 64
 #define SCSI_SECTOR_SIZE 512
@@ -258,6 +259,18 @@ static int set_clock(int f, int y, unsigned char month, unsigned char d,
     return sendcmd(f,CMD_SET_CLOCK,
                    ((y&0xFFFF)<<16)|(month<<8)|d,
                    (h<<24)|(min<<16), 0);
+}
+
+static void set_clock_to_now(int f) {
+    time_t tt;
+    struct tm *t;
+
+    tt = time(NULL);
+    t = localtime(&tt);
+    if (t != NULL) {
+        set_clock(f, t->tm_year+1900, t->tm_mon+1, t->tm_mday,
+                  t->tm_hour, t->tm_min);
+    }
 }
 
 static unsigned int checksum32(unsigned char *data, unsigned int len) {
@@ -780,6 +793,7 @@ enum mode_e {
     M_MSG,
 //#define M_LCD   6
     M_INFO,
+    M_SETCLK,
     M_H_MSG,
     M_H_CODE64,
     M_H_CODELONG,
@@ -808,6 +822,7 @@ static const struct command_s commands[] = {
     { "-dr", "dump RAM", M_RDMP, P_OUTFILE },
     { "-m", "display message (9 characters)", M_MSG, P_TEXT },
     { "-i", "print information", M_INFO, P_NONE },
+    { "-c", "set clock to current time", M_SETCLK, P_NONE },
     { "-Hm", "display message (64 characters)", M_H_MSG, P_TEXT },
     { "--upload-code", "upload and execute up to 64 bytes of code at 0x200", M_H_CODE64, P_INFILE },
     { "--upload-long-code", "upload and execute up to 0x200 bytes of code at 0x580", M_H_CODELONG, P_INFILE },
@@ -934,6 +949,7 @@ int main(int argc, char** argv) {
 #endif
 
     switch (command->mode) {
+/* These commands work with unaltered firmware */
     //case M_UP:
     //case M_DMP,
     //case M_FUP,
@@ -951,6 +967,10 @@ int main(int argc, char** argv) {
         print_picture_format(f);
         print_firmware_version(f);
         break;
+    case M_SETCLK:
+        set_clock_to_now(f);
+        break;
+/* Following commands require hacked firmware */
     case M_H_MSG:
         hack_text(f, argv[3]);
         break;
