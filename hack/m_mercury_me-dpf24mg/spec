@@ -1,0 +1,33 @@
+;Spec-file for Mercury ME-DPF24MG
+;Please keep the way the adresses are entered ($ to indicate a hex number,
+;adresses in 4 digits) intact or the hackfw.sh script won't work anymore.
+;Adresses here refer to file-adresses; in runtime these are loaded $4000
+;bytes higher but that's accounted for in the hack-code itself.
+
+CMP_VAR1=$037A
+CMP_VAR2=$037B
+PATCH_AT=$A40C
+; Actually BD40 but I'm being paranoid
+EMPTY_AT=$BD50
+SEND_CSW=$2F79
+LEN0=$36C
+LEN1=$36D
+LEN2=$36E
+LEN3=$36F
+CONF_XRES=320
+CONF_YRES=240
+CONF_BPP=24
+CONF_PROTO=1
+
+CTRTYPE=2 ;ILI9320
+OFFX=0
+OFFY=0
+
+COMMAND_BUF=$0381 ; First 16 bytes of command packet are copied here
+USB_SEND_STATE=$369 ; Must be 2 to enable reading via the USB ISR
+DATA_VALID=$361 ; Set to 1 by USB ISR when data has been written to data location
+CMD_VALID=$362 ; Set to 1 by USB ISR when command has been written to command location
+CMD_PARSED=$363 ; Set to 0 by USB ISR when command has been written to command location
+PC_SAVED=$306 ; Port C output value is written here also
+FREERAM=$580 ; 512 byte buffer used only when writing to flash, free for use here
+;FINISH_XFER=$29D8 ; Called after packet reception, not used by hack
