@@ -23,22 +23,27 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+static char *progname = NULL;
+
 static void pfatal(const char *msg) {
+    fprintf(stderr, "%s: ", progname);
     perror(msg);
     exit(1);
 }
 
 static void fatal(const char *msg) {
-    fputs(msg, stderr);
+    fprintf(stderr, "%s: %s\n", progname, msg);
     exit(1);
 }
 
 int main(int argc, char **argv) {
     int f1,f2,r;
-    long size;
+    long size, size2;
     unsigned int offset;
     char *buff;
     struct stat sbuff;
+
+    progname = argv[0];
 
     if (argc!=4) {
         printf("Usage: %s file1 file2 offset\n"
@@ -49,47 +54,52 @@ int main(int argc, char **argv) {
 
     r=stat(argv[1],&sbuff);
     if (r!=0)
-        pfatal("Couldn't stat file1.\n");
+        pfatal("Couldn't stat file1");
 
     size=sbuff.st_size;
     buff=malloc(size);
     if (buff==NULL)
-        fatal("Couldn't malloc bytes for file1.\n");
+        fatal("Couldn't malloc bytes for file1");
 
     f1=open(argv[1],O_RDONLY);
     if (f1<0)
-        pfatal("Couldn't open file1.\n");
+        pfatal("Couldn't open file1");
 
     if (read(f1,buff,size) != size)
-        pfatal("Couldn't read file1.\n");
+        pfatal("Couldn't read file1");
 
     if (close(f1) != 0)
-        pfatal("Error while closing file1\n");
+        pfatal("Error while closing file1");
 
     offset= strtol(argv[3], (char **)NULL, 0);
     if (offset>size)
-        fatal("Offset bigger than size of file!\n");
+        fatal("Offset bigger than size of file!");
     printf("Splicing in at offset 0x%X.\n",offset);
+
+    r=stat(argv[2],&sbuff);
+    if (r!=0)
+        pfatal("Couldn't stat file2");
+    size2=sbuff.st_size;
 
     f2=open(argv[2],O_RDONLY);
     if (f2<0)
-        pfatal("Couldn't open file2.\n");
+        pfatal("Couldn't open file2");
 
-    if (read(f2,buff+offset,size) != size)
-        pfatal("Couldn't read file2.\n");
+    if (read(f2,buff+offset,size) != size2)
+        pfatal("Couldn't read file2");
 
     if (close(f2) != 0)
-        pfatal("Error while closing file2\n");
+        pfatal("Error while closing file2");
 
     f2=open(argv[1],O_CREAT|O_TRUNC|O_WRONLY,444);
     if (f2<0)
-        pfatal("Couldn't open file1 for writing.\n");
+        pfatal("Couldn't open file1 for writing");
 
     if (write(f2,buff,size) != size)
-        pfatal("Couldn't write to file2.\n");
+        pfatal("Couldn't write to file2");
 
     if (close(f2) != 0)
-        pfatal("Error while closing file2 after writing\n");
+        pfatal("Error while closing file2 after writing");
 
     printf("All done. Thank you, come again.\n");
     exit(0);

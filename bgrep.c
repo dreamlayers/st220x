@@ -24,13 +24,16 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+static char *progname = NULL;
+
 static void pfatal(const char *msg) {
+    fprintf(stderr, "%s: ", progname);
     perror(msg);
     exit(1);
 }
 
 static void fatal(const char *msg) {
-    fputs(msg, stderr);
+    fprintf(stderr, "%s: %s\n", progname, msg);
     exit(1);
 }
 
@@ -39,6 +42,8 @@ int main(int argc, char **argv) {
     char *buff, *lookfor;
     struct stat sbuff;
     int outfmt=0;
+
+    progname = argv[0];
 
     if (argc!=3 && argc!=4) {
     printf(
@@ -57,24 +62,24 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (stat(argv[1],&sbuff)!=0) pfatal("Couldn't stat file1.\n");
+    if (stat(argv[1],&sbuff)!=0) pfatal("Couldn't stat file1");
     size=sbuff.st_size;
     buff=malloc(size);
-    if (buff==NULL) fatal("Couldn't malloc bytes for file1.\n");
+    if (buff==NULL) fatal("Couldn't malloc bytes for file1");
 
-    if (stat(argv[2],&sbuff)!=0) pfatal("Couldn't stat file2.\n");
+    if (stat(argv[2],&sbuff)!=0) pfatal("Couldn't stat file2");
     size2=sbuff.st_size;
     lookfor=malloc(size2);
-    if (lookfor==NULL) fatal("Couldn't malloc bytes for file2.\n");
+    if (lookfor==NULL) fatal("Couldn't malloc bytes for file2");
 
     f1=open(argv[1],O_RDONLY);
-    if (f1<0) pfatal("Couldn't open file1.\n");
-    if (read(f1,buff,size)!=size) pfatal("Couldn't read file1.\n");
+    if (f1<0) pfatal("Couldn't open file1");
+    if (read(f1,buff,size)!=size) pfatal("Couldn't read file1");
     close(f1);
 
     f2=open(argv[2],O_RDONLY);
-    if (f2<0) pfatal("Couldn't open file2.\n");
-    if (read(f2,lookfor,size2)!=size2) pfatal("Couldn't read file2.\n");
+    if (f2<0) pfatal("Couldn't open file2");
+    if (read(f2,lookfor,size2)!=size2) pfatal("Couldn't read file2");
     close(f2);
 
     // fprintf(stderr,"Looking for 0x%x bytes...\n",size2);
