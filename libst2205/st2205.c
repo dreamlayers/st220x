@@ -514,6 +514,31 @@ void st2205_close(st2205_handle *h)
     free(h);
 }
 
+static int hack_frame(int f, char *buff)
+{
+    ssize_t wrote_bytes;
+
+    if (lseek(f,POS_CMD,SEEK_SET) != POS_CMD) {
+        printf("ERROR: Seek to POS_CMD failed.\n");
+        return 0;
+    }
+
+    buff[0]=8;
+    buff[1]='H';
+    buff[2]='A';
+    buff[3]='C';
+    buff[4]='K';
+    memset(&buff[5], 0, 4);
+
+    wrote_bytes = write(f,buff,0x200);
+
+    if (wrote_bytes != 0x200) {
+        printf("ERROR: Write failed for command hack.\n");
+        return 0;
+    } else {
+        return 1;
+    }
+}
 
 st2205_handle *st2205_open(const char *dev)
 {
@@ -583,6 +608,8 @@ st2205_handle *st2205_open(const char *dev)
     r->offx   = 0;
     r->offy   = 0;
 #endif
+
+    hack_frame(fd, buff);
 
     DPRINT("libst2205: detected device, %ix%i, %i bpp.\n", r->width, r->height, r->bpp);
 
