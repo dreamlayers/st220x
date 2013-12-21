@@ -1,0 +1,33 @@
+Mercury ME-DPF24MG photo frame hack by Boris Gjenero <boris.gjenero@gmail.com>
+Based on st2205tool-1.4.3 by Jeroen Domburg <jeroen@spritesmods.com>
+Released under the GNU General Public License, version 3 or later.
+
+The Mercury ME-DPF24MG is a 320x240 portable photo frame based on a Sitronix
+chip. This hack allows immediate image display via USB, backlight control,
+and LCD power control.
+
+The first firmware page, from 0x0000 to 0x3FFF, is write-protected.
+This prevents a hack via interrupt handlers, like in st2205tool. Instead,
+the hack is performed via a command that is on a writable firmware page.
+The original firmware command only needs to be sent to start running the
+hack. It then continues running until the next original firmware command
+is received. The hack uses polling and has various optimizations for
+maximum performance. Nevertheless, a high frame rate is not attainable
+at 320x240x24bpp over USB 1.1.
+
+The tools and hack here originated as st2205tool-1.4.3, but most have been
+substantially rewritten. The phack command line syntax has changed. It may
+be displayed via "phack -h". Both bgrep and splice work the same way, but
+the error checking and handling has been improved. In hackfw.sh, firmware
+dumping and flash writing parts have been removed, and the script is only
+used for patching firmware. Dumping and flashing should be done manually
+via phack. This allows for creating a new hacked firmware without needing
+to first flash the original firmware. It also allows you to inspect the
+patched firmware before installing it on the device.
+
+The photo frame may be accessed via libst2205 and setpic. The libst2205
+here has been altered and it contains an added LCD sleep/wake function,
+but it should be compatible with software written for the old libst2205.
+Setpic now supports JPEG, PNG and GIF files. It resizes files for the
+photo frame, maintaining the aspect ratio. It can also be used for LCD
+sleep and wake.
