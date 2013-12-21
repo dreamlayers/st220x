@@ -573,6 +573,13 @@ static int send_message(int f, char *s)
 static int hack_frame(int f, char *tag, unsigned char *b)
 {
     ssize_t wrote_bytes;
+    int len;
+
+    len = strlen(tag);
+    if (len != 4 && len != 8) {
+        printf("ERROR: Bad tag given to hack_frame().\n");
+        return 0;
+    }
 
     if (lseek(f,POS_CMD,SEEK_SET) != POS_CMD) {
         printf("ERROR: Seek to POS_CMD failed.\n");
@@ -580,10 +587,8 @@ static int hack_frame(int f, char *tag, unsigned char *b)
     }
 
     buff[0]=8;
-    buff[1]=tag[0];
-    buff[2]=tag[1];
-    buff[3]=tag[2];
-    buff[4]=tag[3];
+    memcpy(&buff[1], tag, len);
+    if (len == 4) memset(&buff[5], 0, 4);
 
     memcpy(&buff[SCSI_SECTOR_SIZE-USB_PACKET_SIZE], b, USB_PACKET_SIZE);
 
@@ -594,23 +599,6 @@ static int hack_frame(int f, char *tag, unsigned char *b)
         return 0;
     } else {
         return 1;
-    }
-}
-
-static int hack_text(int f, char *msg)
-{
-    int len;
-
-    len = strlen(msg);
-    if (len > USB_PACKET_SIZE) len = USB_PACKET_SIZE;
-
-    if (len == USB_PACKET_SIZE) {
-        return hack_frame(f, "TXTP", (unsigned char *)msg);
-    } else {
-        unsigned char buf[USB_PACKET_SIZE];
-        memcpy(buf, msg, len);
-        memset(&buf[len], ' ', USB_PACKET_SIZE-len);
-        return hack_frame(f, "TXTP", (unsigned char *)buf);
     }
 }
 
@@ -634,7 +622,7 @@ static int hack_code(int f, int o)
         return 0;
     }
 
-    return hack_frame(f, "HACK", buf);
+    return hack_frame(f, "HACKCODE", buf);
 }
 
 /* This is to for uploading to BKO buffer appended with data for
@@ -659,7 +647,10 @@ static const unsigned char uploader[] = {
     /* 0217 */ 0xA9, 0x20, /* lda #BKO_BUF+BKO_BUF_SIZE-cpdata-1 */
     /* 0219 */ 0x85, 0x5C, /* sta DCNTL ; DMA runs here */
     /* 021B */ 0x58,       /* cli */
-    /* 021C */ 0x4C, 0x52, 0x7E /* jmp  $7E52 */
+/* TODO: Set up a better return method, because this address needs to be
+ *       updated when code in flash changes.
+ */
+    /* 021C */ 0x4C, 0xCB, 0x7D /* jmp  $7DCB */
     /* 021F */
 };
 
@@ -705,10 +696,11 @@ static int hack_code_long(int f, int o) {
         memcpy(&buf[sizeof(uploader)], &codebuf[offset], chunksize);
 
         //write(STDOUT_FILENO, buf, USB_PACKET_SIZE);
-        if (hack_frame(f, "HACK", buf) != 1) {
+        if (hack_frame(f, "HACKCODE", buf) != 1) {
             printf("ERROR: Upload failed at %i\n", offset);
             return 0;
         }
+        usleep(10000);
         fprintf(stderr, ".");
 
         offset += chunksize;
@@ -849,7 +841,6 @@ enum mode_e {
 //#define M_LCD   6
     M_INFO,
     M_SETCLK,
-    M_H_MSG,
     M_H_CODE64,
     M_H_CODELONG,
     M_H_IMAGE
@@ -870,7 +861,8 @@ struct command_s {
 };
 
 static const struct command_s commands[] = {
-    { "-dp", "dump picture memory", M_DMP, P_OUTFILE },
+    { "\nCommands for original firmware:\n "
+      "-dp", "dump picture memory", M_DMP, P_OUTFILE },
     { "-up", "upload picture memory", M_UP, P_INFILE },
     { "-df", "dump firmware", M_FDMP, P_OUTFILE },
     { "--upload-firmware", "upload firmware", M_FUP, P_INFILE },
@@ -878,8 +870,10 @@ static const struct command_s commands[] = {
     { "-m", "display message (9 characters)", M_MSG, P_TEXT },
     { "-i", "print information", M_INFO, P_NONE },
     { "-c", "set clock to current time", M_SETCLK, P_NONE },
-    { "-Hm", "display message (64 characters)", M_H_MSG, P_TEXT },
-    { "--upload-code", "upload and execute up to 64 bytes of code at 0x200", M_H_CODE64, P_INFILE },
+    { "\n"
+      "Commands for hacked firmware:\n "
+      "--upload-code", "upload and execute up to 64 bytes of code at 0x200",
+      M_H_CODE64, P_INFILE },
     { "--upload-long-code", "upload and execute up to 0x200 bytes of code at 0x580", M_H_CODELONG, P_INFILE },
     { "--upload-image", "upload image", M_H_IMAGE, P_INFILE },
 };
@@ -888,16 +882,18 @@ static void print_usage(char *s)
 {
     int i;
 
-    printf("Usage:\n%s DEVICE OPERATION [PARAMETER]\n",s);
+    printf("Usage: %s DEVICE COMMAND [PARAMETER]\n",s);
     for (i = 0; i < sizeof(commands)/sizeof(struct command_s); i++) {
         printf(" %s: %s\n", commands[i].cmdlparam, commands[i].help);
     }
-// v2.0 - moved to setpic
-//    printf(" -l: send png- to framebuffer mem (hacked fw only)\n");
-    printf(" file: file to dump to or upload from\n");
-    printf(" device: /dev/sdX (default: /dev/sda)\n");
-//    printf("-l accepts directories too, in which case it'll proceed to send every file in the\n");
-//    printf("directory to the LCD.\n");
+
+    printf(
+"\n"
+"DEVICE: Disk device where frame is located, such as /dev/sdb\n"
+"PARAMETER: Filename or other information for particular command.\n"
+"\n"
+    );
+
 }
 
 int main(int argc, char** argv) {
@@ -919,7 +915,7 @@ int main(int argc, char** argv) {
     }
 
     if (command == NULL) {
-        printf("Invalid command: %s\n",argv[1]);
+        printf("Invalid command: %s\n",argv[2]);
         exit(1);
     }
 
@@ -1028,9 +1024,6 @@ int main(int argc, char** argv) {
         set_clock_to_now(f);
         break;
 /* Following commands require hacked firmware */
-    case M_H_MSG:
-        hack_text(f, argv[3]);
-        break;
     case M_H_CODE64:
         hack_code(f, o);
         break;
