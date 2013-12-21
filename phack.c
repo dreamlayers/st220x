@@ -379,89 +379,144 @@ static int upload_file(int f, int p, int o) {
     return 1;
 }
 
-#if 0
 static int upload_firmware(int f, int o) {
     off_t offset;
-    ssize_t gotbytes, wrote_bytes;
+    ssize_t gotbytes;
+    int x;
+    unsigned char *cksumbuf, *firmbuf;
+    int res = 0;
+
+    printf(
+"*** WARNING ***\n"
+"This performs a firmware upgrade. If done incorrectly,\n"
+"it may brick your photo frame, making it unusable.\n"
+"\n"
+"This program writes the firmware to a temporary location, overwriting\n"
+"the second photo. At the same time, it sets a flag which triggers a\n"
+"firmware upgrade after the photo frame is unplugged from USB.\n"
+"\n"
+"Ensure the photo frame is turned on, so it does not lose power when\n"
+"USB is disconnected.\n"
+"\n"
+"Once the flag is set, it cannot be cleared. However, you can try to\n"
+"upload the firmware again. Ensure you have a good upload before you\n"
+"disconnect USB. That is the final point of no return.\n"
+"\n"
+"Press Enter to proceed.\n"
+    );
+
+    (void)getchar();
+
+    cksumbuf = malloc_aligned(SCSI_SECTOR_SIZE);
+    if (cksumbuf == NULL) {
+        printf("ERROR: Failed to allocate buffer for checksum.\n");
+        return 0;
+    }
+    firmbuf = malloc_aligned(FIRMWARE_SIZE);
+    if (firmbuf == NULL) {
+        printf("ERROR: Failed to allocate buffer for checksum.\n");
+        free_aligned(cksumbuf, SCSI_SECTOR_SIZE);
+        return 0;
+    }
 
     offset = lseek(o,0,SEEK_END);
     if (offset < 0) {
-        printf("ERROR: Failed to seek to end of file.");
-        return 0;
+        printf("ERROR: Failed to seek to end of file.\n");
+        goto ulfw_safe_fail;
     } else if (offset != FIRMWARE_SIZE) {
-        printf("ERROR: File size wrong, should be %x bytes.", FIRMWARE_SIZE);
-        return 0;
+        printf("ERROR: File size wrong, should be %i bytes.\n", FIRMWARE_SIZE);
+        goto ulfw_safe_fail;
     }
 
     offset = lseek(o,0,SEEK_SET);
     if (offset != 0) {
-        printf("ERROR: Failed to start of file.");
-        return 0;
+        printf("ERROR: Failed to start of file.\n");
+        goto ulfw_safe_fail;
     }
 
-    gotbytes = read(o, buff, FIRMWARE_SIZE);
+    gotbytes = read(o, firmbuf, FIRMWARE_SIZE);
     if (gotbytes != FIRMWARE_SIZE) {
         printf("ERROR: Firmware file read failed.\n");
-        return 0;
+        goto ulfw_safe_fail;
     }
 
-    printf("WARNING: Uploading firmware now. Do not power off or unplug!");
-
-    if (sendcmd(f, CMD_FLASH_WRITE, 0x80000000, FIRMWARE_SIZE, 0) != 1) {
-        printf("ERROR: Firmware write command sending failed.");
-        return 0;
-    }
-
-    wrote_bytes = write_data(f, buff, FIRMWARE_SIZE);
-
-    if (wrote_bytes != FIRMWARE_SIZE) {
-        printf("ERROR: Firmware write returned %i.\n", wrote_bytes);
-        return 0;
-    }
-    return 1;
-}
-#else
-static int upload_firmware(int f, int o) {
-    unsigned int cksumhere, cksumthere;
-    int    x, y;
-    unsigned char *cksumbuf;
-
-    cksumbuf = malloc_aligned(0x200);
-
+    /* Now write to firmware. */
     for (x=0; x<2; x++) {
-        y=read(o,buff,0x8000);
-        if (y!=0x8000) {
-            printf("Premature file end. Hope everything still works OK.\n");
-            break;
+        unsigned int cksumhere, cksumthere;
+        unsigned char *chunkp = &firmbuf[0x8000*x];
+
+        cksumhere = checksum32(chunkp, 0x8000);
+
+        printf("Writing firmware block %i (0x%04x-0x%04x)\n",
+               x, (int)(chunkp-firmbuf), (int)(chunkp-firmbuf+0x8000-1));
+
+        /* Write one chunk of firmware data.
+         *
+         * This actually goes to data pages 6 and 7. It sets a flag which
+         * causes those pages to be copied to data pages 0 and 1, which
+         * correspond to firmware pages 0 through 3. This is necessary because
+         * code is normally executing from flash. The copying happens after
+         * disconnecting USB, from a function that is copied to RAM.
+         *
+         * On the Mercury ME-DPF24MG, firmware page 0 cannot be altered.
+         * The code tries, but has no effect. This is probably due to
+         * hardware write protect via a pin on the flash chip.
+         */
+        if (sendcmd(f, CMD_FLASH_WRITE, x|0x80000000, 0x8000, 0) != 1) {
+            printf("ERROR: Failed to send upload command.");
+            goto ulfw_unsafe_fail;
         }
 
-        cksumhere = checksum32(buff, 0x8000);
+        if (write_data(f, chunkp, 0x8000) != 0x8000) {
+            printf("ERROR: Failed to send data.");
+            goto ulfw_unsafe_fail;
+        }
 
-        sendcmd(f,3,x|0x80000000,0x8000,0);
-        write_data(f,buff,0x8000);
-
-        sendcmd(f,2,x+4 /* x|0x80000000 should be this but buggy */,0x8000,0);
-        read_data(f,cksumbuf,0x200);
-        cksumthere = (cksumbuf[0]<<24)+(cksumbuf[1]<<16)+(cksumbuf[2]<<8)+cksumbuf[3];
+        /* Checksum flash segments that should have been written.
+         * The same x|0x80000000 addressing cannot be used, because
+         * of what is probably a bug in the firmware.
+         */
+        if (checksum_page(f, x+6, &cksumthere) != 1) {
+            printf("ERROR: Failed to read checksum.");
+            goto ulfw_unsafe_fail;
+        }
 
         if (cksumhere == cksumthere) {
-            //nosendcmd(f,3,x|0x1f40,0x8000,0);
-            //nowrite_data(f,buff,0x8000);
-            printf("Not sending silly command\n");
+            printf("Checksum okay for block %i.\n", x);
+            /* This command is not understood and unnecessary:
+             * sendcmd(f,3,x|0x1f40,0x8000,0);
+             * write_data(f,buff,0x8000);
+             */
         } else {
-            printf("Checksum error at block %i %08x %08x\n", x, cksumhere, cksumthere);
-            break;
+            printf("ERROR: Checksum mismatch at block %i: "
+                   "should be %08x, but got %08x.\n",
+                   x, cksumhere, cksumthere);
+            goto ulfw_unsafe_fail;
         }
-
-        fprintf(stderr,".");
     }
 
-    free_aligned(cksumbuf, 0x200);
-    printf("Upload done");
+    printf(
+"\n"
+"Firmware upload successful. Disconnect USB to begin firmware upgrade.\n"
+"Switch must be on to continue powering the device after USB is\n"
+"disconnected. Do not interrupt the process!\n"
+    );
+    res = 1;
+    goto ulfw_exit;
 
-    return 1;
+ulfw_unsafe_fail:
+    printf(
+"The photo frame may be bricked when you disconnect USB and it attempts to\n"
+"update. Try to perform a successful firmware update before disconnecting.\n"
+    );
+    goto ulfw_exit;
+ulfw_safe_fail:
+    printf("This failure was safe. No firmware upload was performed.\n");
+ulfw_exit:
+    free_aligned(firmbuf, FIRMWARE_SIZE);
+    free_aligned(cksumbuf, SCSI_SECTOR_SIZE);
+    return res;
 }
-#endif
 
 static unsigned char *get_ram(int f) {
     int bytes;
@@ -952,7 +1007,9 @@ int main(int argc, char** argv) {
 /* These commands work with unaltered firmware */
     //case M_UP:
     //case M_DMP,
-    //case M_FUP,
+    case M_FUP:
+        upload_firmware(f, o);
+        break;
     case M_FDMP:
         dump_pages(f, o, 0, 2);
         break;
@@ -984,7 +1041,7 @@ int main(int argc, char** argv) {
         hack_image(f, o);
         break;
     default:
-        printf("Command not implemented.");
+        printf("Command not implemented.\n");
     }
 
     free_aligned(buff, FIRMWARE_SIZE);
