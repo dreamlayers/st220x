@@ -1,9 +1,14 @@
 *.o
 bgrep
+bgrep.exe
 phack
+phack.exe
 splice
+splice.exe
 setpic/setpic
+setpic/setpic.exe
 libst2205/libst2205.a
+libst2205/libst2205.so
 libst2205/libst2205.so.2
 libst2205/libst2205.dll
 *.bin
