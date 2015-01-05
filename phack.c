@@ -721,7 +721,7 @@ static int hack_code_long(int f, int o) {
     buf[1] = FREE_RAM_ADDR & 0XFF;
     buf[2] = FREE_RAM_ADDR >> 8;
 
-    if (hack_frame(f, "HACK", buf) != 1) {
+    if (hack_frame(f, "HACKCODE", buf) != 1) {
         printf("ERROR: Upload of execution jump failed.\n");
         return 0;
     }
