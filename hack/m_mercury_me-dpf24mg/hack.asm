@@ -118,7 +118,7 @@ ENDC
 ;    db ((FINISH_XFER&PRR_PAGE_MASK)+CODE_BASE-1)&$FF
 ;    db ((FINISH_XFER&PRR_PAGE_MASK)+CODE_BASE-1)>>8
 
-    lda USBBFS_BKO
+    lda #USBBFS_BKO
     sta USBBFS
 
 ; Wait for USB ISR to set flag meaning data is available
@@ -218,7 +218,7 @@ nextpacket=*
 ; Wait for next packet
 waitpacket=*
     lda USBBFS
-    and USBBFS_BKO
+    and #USBBFS_BKO
     beq waitpacket
 
 ; Now the packet data is available in the BKO buffer.
@@ -236,7 +236,7 @@ entry=*
 ; DMA complete, so tell hardware that BKO is free for new packet
 ; Other operations jump here when they're done.
 packetdone=*
-    lda USBBFS_BKO
+    lda #USBBFS_BKO
     sta USBBFS
 
 ; Subtract 0x40 (USB packet size) from length sent by SCSI command
