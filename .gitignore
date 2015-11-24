@@ -13,3 +13,4 @@ libst2205/libst2205.so.2
 libst2205/libst2205.dll
 *.bin
 *.lst
+*.pyc
