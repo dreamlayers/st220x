@@ -19,7 +19,7 @@ function do_assemble() {
     rm -f tmp.hex
 }
 
-
+if [ $# -eq 0 ]; then
 for x in m_*; do
     echo "Assembling $x..."
     cp $x/spec .
@@ -39,3 +39,13 @@ for x in m_*; do
     echo "$x assembled."
 done
 echo "All done."
+elif [ $# -eq 1 -a -e "$1" ]; then
+do_assemble "$1" $(basename "$1" .asm).bin
+elif [ $# -eq 2 -a -e "$1" ]; then
+do_assemble "$1" "$2"
+else
+echo Usage:
+echo     To assemble everything: assembleme
+echo     To assemble file.asm into file.bin: assembleme file.asm
+echo     To assemble file.asm into file2.bin: assembleme file.asm file2.bin
+fi
