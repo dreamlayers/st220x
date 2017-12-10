@@ -10,6 +10,7 @@ LNNAME	=	libst2205.so
 PREFIX	=	/usr/local
 LIBDIR	=	$(PREFIX)/lib
 RUBYDIR	=	$(LIBDIR)/site_ruby
+PYDIR	=	$(LIBDIR)/python2.7/dist-packages
 HDRDIR	=	$(PREFIX)/include
 
 $(TARGET):	$(OBJ) $(SRC) $(HEADERS)
@@ -27,10 +28,12 @@ install: $(TARGET) $(HEADERS)
 	test -z "$(LIBDIR)" || /bin/mkdir -p "$(LIBDIR)"
 	test -z "$(HDRDIR)" || /bin/mkdir -p "$(HDRDIR)"
 	test -z "$(RUBYDIR)" || /bin/mkdir -p "$(RUBYDIR)"
+	test -z "$(PYDIR)" || /bin/mkdir -p "$(PYDIR)"
 	install $(TARGET) $(LIBDIR)
 	rm -f $(LIBDIR)/$(LNNAME)
 	ln -s $(TARGET) $(LIBDIR)/$(LNNAME)
 	install $(HEADERS) $(HDRDIR)
 	install -m 644 st2205.rb $(RUBYDIR)
 	install -m 644 st2205_gd2.rb $(RUBYDIR)
+	install -m 644 st2205.py $(PYDIR)
 	ldconfig
