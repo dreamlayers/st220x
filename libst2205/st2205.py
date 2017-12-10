@@ -58,6 +58,15 @@ class ST2205:
                                "black")
         return self.i
 
+    def upload_rgba(self, data):
+        b = (c_ubyte * (self.h.contents.width * self.h.contents.height * 3))()
+        for i in range(0, self.h.contents.width * self.h.contents.height):
+            b[i*3 + 0] = ord(data[i*4 + 0])
+            b[i*3 + 1] = ord(data[i*4 + 1])
+            b[i*3 + 2] = ord(data[i*4 + 2])
+        st2205_send_data(self.h, cast(c_char_p(addressof(b)),
+                                      POINTER(c_ubyte)))
+
     def update(self):
         st2205_send_data(self.h, cast(c_char_p(self.i.tobytes()),
                                       POINTER(c_ubyte)))
