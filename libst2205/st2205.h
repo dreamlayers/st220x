@@ -12,6 +12,7 @@ typedef struct {
        unsigned char* oldpix;
        int offx;
        int offy;
+       unsigned char* rgbabuf;
 } st2205_handle;
 
 /*
@@ -35,6 +36,14 @@ void st2205_send_data(st2205_handle *h, unsigned char *pixinfo);
  Send part of an array of h->width*h->height r,g,b triplets.
  */
 void st2205_send_partial(st2205_handle *h, unsigned char *pixinfo, int xs, int ys, int xe, int ye);
+
+
+/*
+ Same as above, but RGBA arrangement, ignoring A.
+ */
+void st2205_rgba(st2205_handle *h, const unsigned char *data);
+void st2205_rgba_partial(st2205_handle *h, const unsigned char *data,
+                         int xs, int ys, int xe, int ye);
 
 /*
 Turn the backlight on or off

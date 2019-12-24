@@ -477,6 +477,65 @@ void st2205_send_data(st2205_handle *h, unsigned char *pixinfo)
 
 }
 
+void st2205_rgba(st2205_handle *h, const unsigned char *data)
+{
+    int i, pixels = h->width * h->height;
+    const unsigned char *src = data;
+    unsigned char *dest;
+
+    if (h->rgbabuf == NULL) {
+        h->rgbabuf = malloc(pixels * 3);
+        if (h->rgbabuf == NULL) return;
+    }
+
+    dest = h->rgbabuf;
+    for (i = pixels; i > 0; i--) {
+        dest[0] = src[2];
+        dest[1] = src[1];
+        dest[2] = src[0];
+        dest += 3;
+        src += 4;
+    }
+
+    st2205_send_data(h, h->rgbabuf);
+}
+
+void st2205_rgba_partial(st2205_handle *h, const unsigned char *data,
+                         int xs, int ys, int xe, int ye)
+{
+    int x, rows, y, cols, pixidx, pixskip, srcskip, destskip;
+    const unsigned char *src;
+    unsigned char *dest;
+
+    if (h->rgbabuf == NULL) {
+        h->rgbabuf = malloc(h->width * h->height * 3);
+        if (h->rgbabuf == NULL) return;
+    }
+
+    cols = xe - xs + 1;
+    rows = ye - ys + 1;
+
+    pixidx = h->width * ys + xs;
+    pixskip = h->width - cols;
+    src = &data[pixidx * 4];
+    srcskip = pixskip * 4;
+    dest = &(h->rgbabuf[pixidx * 3]);
+    destskip = pixskip * 3;
+
+    for (y = rows; y != 0; y--) {
+        for (x = cols; x != 0; x--) {
+            dest[0] = src[2];
+            dest[1] = src[1];
+            dest[2] = src[0];
+            dest += 3;
+            src += 4;
+        }
+        src += srcskip;
+        dest += destskip;
+    }
+
+    st2205_send_partial(h, h->rgbabuf, xs, ys, xe, ye);
+}
 
 /*
  Send command to turn bl on or off
@@ -510,6 +569,9 @@ void st2205_close(st2205_handle *h)
 
     if (h->oldpix != NULL)
         free(h->oldpix);
+
+    if (h->rgbabuf != NULL)
+        free(h->rgbabuf);
 
     free(h);
 }
@@ -608,6 +670,7 @@ st2205_handle *st2205_open(const char *dev)
     r->offx   = 0;
     r->offy   = 0;
 #endif
+    r->rgbabuf = NULL;
 
     hack_frame(fd, buff);
 
