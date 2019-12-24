@@ -58,14 +58,35 @@ class ST2205:
                                "black")
         return self.i
 
-    def upload_rgba(self, data):
+    def update_rgba(self, data):
         b = (c_ubyte * (self.h.contents.width * self.h.contents.height * 3))()
         for i in range(0, self.h.contents.width * self.h.contents.height):
-            b[i*3 + 0] = ord(data[i*4 + 0])
+            b[i*3 + 0] = ord(data[i*4 + 2])
             b[i*3 + 1] = ord(data[i*4 + 1])
-            b[i*3 + 2] = ord(data[i*4 + 2])
+            b[i*3 + 2] = ord(data[i*4 + 0])
         st2205_send_data(self.h, cast(c_char_p(addressof(b)),
                                       POINTER(c_ubyte)))
+
+    def update_rgba_part(self, data, xs, ys, xe, ye):
+        b = (c_ubyte * (self.h.contents.width * self.h.contents.height * 3))()
+        pixidx = self.h.contents.width * ys + xs
+        pixskip = (self.h.contents.width - (xe - xs + 1))
+        bidx = pixidx * 3
+        bskip = pixskip * 3
+        didx = pixidx * 4
+        dskip = pixskip * 4
+        for y in range(ys, ye + 1):
+            for x in range(xs, xe + 1):
+                b[bidx + 0] = ord(data[didx + 2])
+                b[bidx + 1] = ord(data[didx + 1])
+                b[bidx + 2] = ord(data[didx + 0])
+                bidx += 3
+                didx += 4
+            bidx += bskip
+            didx += dskip
+        st2205_send_partial(self.h, cast(c_char_p(addressof(b)),
+                                         POINTER(c_ubyte)),
+                            xs, ys, xe, ye)
 
     def update(self):
         st2205_send_data(self.h, cast(c_char_p(self.i.tobytes()),
