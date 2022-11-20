@@ -26,7 +26,9 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifndef _WIN32
 #include <sys/mman.h>
+#endif
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,8 +56,16 @@
 */
 static void *malloc_aligned(long size)
 {
-    int f;
     void *buff;
+
+#ifdef _WIN32
+    buff = malloc(size);
+    if (buff == NULL) {
+        perror("Can't allocate memory");
+        return NULL;
+    }
+#else /* !_WIN32 */
+    int f;
 
     f = open("/dev/zero", O_RDONLY);
 
@@ -67,16 +77,22 @@ static void *malloc_aligned(long size)
     buff = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE, f, 0);
 
     close(f);
+#endif /* !_WIN32 */
 
     return buff;
 }
 
 static void free_aligned(void *addr, long size)
 {
+#ifdef _WIN32
+    (void)size;
+    free(addr);
+#else /* !_WIN32 */
     /* To ignore free_aligned() on NULL addr like free() does */
     if (addr != NULL)
         if (munmap(addr, size) < 0)
             perror(NULL);
+#endif /* _WIN32 */
 }
 
 
@@ -611,7 +627,13 @@ st2205_handle *st2205_open(const char *dev)
     int fd;
     void *buff = NULL;
 
-    fd = open(dev, O_RDWR | O_DIRECT);
+    fd = open(dev, O_RDWR
+#ifdef _WIN32
+                   | O_BINARY
+#else
+                   | O_DIRECT
+#endif
+              );
 
     if (fd < 0) {
         perror(dev);

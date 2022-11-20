@@ -28,7 +28,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#ifndef _WIN32
 #include <sys/mman.h>
+#endif
 #include <time.h>
 
 #define USB_PACKET_SIZE 64
@@ -55,8 +57,15 @@ O_DIRECT-opened files.
 */
 
 static void *malloc_aligned(long size) {
-    int f;
     char *buff;
+#ifdef _WIN32
+    buff = malloc(size);
+    if (buff == NULL) {
+        perror("Can't allocate memory");
+        return NULL;
+    }
+#else /* !_WIN32 */
+    int f;
     f=open("/dev/zero",O_RDONLY);
     buff=mmap(0,size,PROT_READ|PROT_WRITE,MAP_PRIVATE,f,0);
     close(f);
@@ -64,11 +73,17 @@ static void *malloc_aligned(long size) {
         printf("FATAL ERROR: Failed mmap in malloc_alligned.\n");
         exit(-1);
     }
+#endif /* !_WIN32 */
     return buff;
 }
 
 static void free_aligned(void *addr, long size) {
+#ifdef _WIN32
+    (void)size;
+    free(addr);
+#else
     munmap(addr,size);
+#endif
 }
 
 
@@ -889,7 +904,13 @@ static void print_usage(char *s)
 
     printf(
 "\n"
-"DEVICE: Disk device where frame is located, such as /dev/sdb\n"
+"DEVICE: Disk device where frame is located, such as "
+#ifdef _WIN32
+"\\\\.\\PhysicalDrive#"
+#else
+"/dev/sdb"
+#endif
+"\n"
 "PARAMETER: Filename or other information for particular command.\n"
 "\n"
     );
@@ -931,7 +952,13 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
-    f=open(argv[1],O_RDWR|O_DIRECT|O_SYNC);
+    f=open(argv[1],O_RDWR
+#ifdef _WIN32
+                   |O_BINARY
+#else
+                   |O_DIRECT|O_SYNC
+#endif
+                   );
 
     //check if dev really is a photo-frame
     if (!is_photoframe(f)) {
@@ -941,10 +968,18 @@ int main(int argc, char** argv) {
 
     switch (command->parameter) {
     case P_INFILE:
-        o=open(argv[3],O_RDONLY);
+        o=open(argv[3],O_RDONLY
+#ifdef _WIN32
+                       |O_BINARY
+#endif
+               );
         break;
     case P_OUTFILE:
-        o=open(argv[3],O_WRONLY|O_TRUNC|O_CREAT,0644);
+        o=open(argv[3],O_WRONLY|O_TRUNC|O_CREAT
+#ifdef _WIN32
+                       |O_BINARY
+#endif
+               ,0644);
         break;
     default:
         break;

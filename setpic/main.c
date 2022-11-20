@@ -24,7 +24,9 @@
 #include <unistd.h>
 #include <gd.h>
 #include <string.h>
+#ifndef _WIN32
 #include <termios.h>
+#endif
 
 #include <st2205.h>
 
@@ -154,7 +156,7 @@ void sendthis(st2205_handle *h, char* what) {
     }
 }
 
-
+#ifndef _WIN32
 //This is a debugging routine. Don't EVER mess with the internals of the
 //st2205_handle like this in a real program!
 void testpic(st2205_handle *h, char* what) {
@@ -201,19 +203,27 @@ void testpic(st2205_handle *h, char* what) {
     printf("K, bye.");
     tcsetattr(0, TCSANOW, &oldterm);
 }
+#endif /* !_WIN32 */
 
 int main(int argc, char **argv) {
     st2205_handle *h;
     if (argc<2) {
+#ifdef _WIN32
+#define SAMPLE_DEVICE "\\\\.\\PhysicalDrive#"
+#else
+#define SAMPLE_DEVICE "/dev/sdX"
+#endif
     printf("Usage:\n");
-    printf(" %s /dev/sdX [-upload] pic.png\n",argv[0]);
+    printf(" %s " SAMPLE_DEVICE " [-upload] pic.png\n",argv[0]);
     printf("  sends a picture to the screen\n");
-    printf(" %s /dev/sdX -backlight on|off\n",argv[0]);
+    printf(" %s " SAMPLE_DEVICE " -backlight on|off\n",argv[0]);
     printf("  for backlight control\n");
-    printf(" %s /dev/sdX -lcd sleep|wake\n",argv[0]);
+    printf(" %s " SAMPLE_DEVICE " -lcd sleep|wake\n",argv[0]);
     printf("  for LCD control\n");
-    printf(" %s /dev/sdX -test pic.png\n",argv[0]);
+#ifndef _WIN32
+    printf(" %s " SAMPLE_DEVICE " -test pic.png\n",argv[0]);
     printf("  Test-mode: interactively find out values for the spec-file\n");
+#endif
     exit(0);
     }
 
@@ -238,8 +248,10 @@ int main(int argc, char **argv) {
         }
     } else if (strcmp(argv[2],"-upload")==0) {
         sendthis(h,argv[3]);
+#ifndef _WIN32
     } else if (strcmp(argv[2],"-test")==0) {
         testpic(h,argv[3]);
+#endif
     } else {
         //argument isn't recognized; try to send it as a file or dir.
         sendthis(h,argv[2]);
