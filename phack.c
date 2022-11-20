@@ -1073,7 +1073,7 @@ int main(int argc, char** argv) {
     }
 
     free_aligned(buff, FIRMWARE_SIZE);
-    free_aligned(buff, SCSI_SECTOR_SIZE);
+    free_aligned(cmdbuf, SCSI_SECTOR_SIZE);
 
     return 0;
 }
