@@ -44,7 +44,7 @@ st2205_lcd_sleep = CFUNCTYPE(None, POINTER(st2205_handle), c_int) \
 
 class ST2205:
     def __init__(self, dev = '/dev/disk/by-id/usb-SITRONIX_MULTIMEDIA-0:0'):
-        self.h = st2205_open(dev)
+        self.h = st2205_open(dev.encode('utf-8'))
         self.i = None
         assert self.h
 
