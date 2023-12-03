@@ -1,5 +1,4 @@
 from ctypes import *
-from PIL import Image
 
 # Handle definition for the st2205_* routines
 class st2205_handle(Structure):
@@ -59,6 +58,7 @@ class ST2205:
         st2205_lcd_sleep(self.h, 1 if sleep else 0)
 
     def get_image(self):
+        from PIL import Image
         if self.i is None:
             self.i = Image.new("RGB",
                                (self.h.contents.width, self.h.contents.height),
